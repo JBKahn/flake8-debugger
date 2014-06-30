@@ -4,7 +4,7 @@ from __future__ import with_statement
 from setuptools import setup
 
 
-def get_version(fname='flake8_print.py'):
+def get_version(fname='flake8_debugger.py'):
     with open(fname) as f:
         for line in f:
             if line.startswith('__version__'):
@@ -20,20 +20,20 @@ def get_long_description():
 
 
 setup(
-    name='flake8-print',
+    name='flake8-debugger',
     version=get_version(),
-    description="print statement checker plugin for flake8",  # noqa
+    description="pdb and ipdb statement checker plugin for flake8",  # noqa
     long_description=get_long_description(),
-    keywords='flake8 print',
+    keywords='flake8 debugger ipdb pdb',
     author='Joseph Kahn',
     author_email='josephbkahn@gmail.com',
-    url='https://github.com/jbkahn/flake8-print',
+    url='https://github.com/jbkahn/flake8-debugger',
     license='MIT',
-    py_modules=['flake8_print'],
+    py_modules=['flake8_debugger'],
     zip_safe=False,
     entry_points={
         'flake8.extension': [
-            'flake8_print = flake8_print:check_for_print_statements',
+            'flake8_debugger = flake8_debugger:check_for_debugger',
         ],
     },
     classifiers=[
