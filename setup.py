@@ -22,9 +22,9 @@ def get_long_description():
 setup(
     name='flake8-debugger',
     version=get_version(),
-    description="pdb and ipdb statement checker plugin for flake8",  # noqa
+    description="pdb and ipdb checker plugin for flake8",
     long_description=get_long_description(),
-    keywords='flake8 debugger ipdb pdb',
+    keywords='flake8 debigger ipdb pdb',
     author='Joseph Kahn',
     author_email='josephbkahn@gmail.com',
     url='https://github.com/jbkahn/flake8-debugger',
@@ -33,7 +33,7 @@ setup(
     zip_safe=False,
     entry_points={
         'flake8.extension': [
-            'flake8_debugger = flake8_debugger:check_for_debugger',
+            'flake8_debugger = flake8_debugger:check_debug_statements',
         ],
     },
     classifiers=[
