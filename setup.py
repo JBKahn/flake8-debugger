@@ -18,6 +18,9 @@ def get_long_description():
             descr.append(f.read())
     return '\n\n'.join(descr)
 
+install_requires = ['flake8']
+
+test_requires = ['nose']
 
 setup(
     name='flake8-debugger',
@@ -36,6 +39,9 @@ setup(
             'flake8_debugger = flake8_debugger:check_debug_statements',
         ],
     },
+    install_requires=install_requires,
+    tests_require=test_requires,
+    test_suite="nose.collector",
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Console',
