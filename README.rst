@@ -28,6 +28,10 @@ available in ``flake8``::
 Changes
 -------
 
+1.3 - 2014-11-04
+````````````````
+* using ast instead of regular expressions
+
 1.2 - 2014-06-30
 ````````````````
 * Added a few simple tests
