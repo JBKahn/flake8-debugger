@@ -1,121 +1,87 @@
-from flake8_debugger import check_debug_statements, DEBUGGER_ERROR_MESSAGE, DEBUGGER_ERROR_CODE
+from flake8_debugger import check_code_for_debugger_statements, format_debugger_message, DEBUGGER_ERROR_CODE
 from nose.tools import assert_equal
 
 
 class Flake8DebuggerTestCases(object):
-    def generate_error_statement(self, index):
-        return (index, '{} {}'.format(DEBUGGER_ERROR_CODE, DEBUGGER_ERROR_MESSAGE))
+    def generate_error_statement(self, line, col, item_type, item_found, name_used):
+        return {
+            'message': format_debugger_message(item_type, item_found, name_used),
+            'line': line,
+            'col': col
+        }
 
 
-class TestGenericCases(Flake8DebuggerTestCases):
-    def test_skips_noqa(self):
-        result = check_debug_statements('44 print 4 # noqa')
-        assert result is None
+class TestImportCases(Flake8DebuggerTestCases):
+    def test_import_multiple(self):
+        result = check_code_for_debugger_statements('import math, ipdb, collections')
+        assert_equal(result, [self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb')])
 
-    def test_catches_simple_ipdb_import(self):
-        result = check_debug_statements('import ipdb')
-        assert_equal(result, self.generate_error_statement(0))
-
-    def test_catches_simple_pdb_import(self):
-        result = check_debug_statements('import pdb')
-        assert_equal(result, self.generate_error_statement(0))
-
-    def test_catches_simple_ipdb_set_trace(self):
-        result = check_debug_statements('ipdb.set_trace();')
-        assert_equal(result, self.generate_error_statement(0))
-
-    def test_catches_simple_pdb_set_trace(self):
-        result = check_debug_statements('pdb.set_trace();')
-        assert_equal(result, self.generate_error_statement(0))
+    def test_import(self):
+        result = check_code_for_debugger_statements('import pdb')
+        assert_equal(result, [self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb')])
 
 
-class TestCommentsPDB(Flake8DebuggerTestCases):
-    def test_pdb_in_inline_comment_is_not_a_false_positive(self):
-        result = check_debug_statements('# import pdb')
-        assert result is None
+class TestModuleSetTraceCases(Flake8DebuggerTestCases):
+    def test_import_ipdb_use_set_trace(self):
+        result = check_code_for_debugger_statements('import ipdb;ipdb.set_trace();')
+        assert_equal(result,
+            [
+                self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
+                self.generate_error_statement(1, 12, 'set_trace', 'ipdb', 'set_trace')
+            ]
+        )
 
-    def test_pdb_same_line_as_comment(self):
-        result = check_debug_statements('import pdb # what should I do with this ?')
-        assert_equal(result, self.generate_error_statement(0))
-
-
-class TestCommentsIPDB(Flake8DebuggerTestCases):
-    def test_ipdb_in_inline_comment_is_not_a_false_positive(self):
-        result = check_debug_statements('# import ipdb')
-        assert result is None
-
-    def test_ipdb_same_line_as_comment(self):
-        result = check_debug_statements('import ipdb # what should I do with this ?')
-        assert_equal(result, self.generate_error_statement(0))
-
-
-class TestSingleQuotesPDB(Flake8DebuggerTestCases):
-    def test_print_in_one_single_quote_single_line_string_not_false_positive(self):
-        result = check_debug_statements('a(\'import pdb\', 25)')
-        assert result is None
-
-    def test_print_in_between_two_one_single_quote_single_line_string(self):
-        result = check_debug_statements('a(\'import pdb\' import pdb \'import pdb\', 25)')
-        assert_equal(result, self.generate_error_statement(3))
-
-    def test_print_in_three_single_quote_single_line_string_not_false_positive(self):
-        result = check_debug_statements('a(\'\'\'import pdb\'\'\', 25)')
-        assert result is None
-
-    def test_print_in_between_two_three_single_quote_single_line_string(self):
-        result = check_debug_statements('a(\'\'\'import pdb\'\'\' import pdb \'\'\'import pdb\'\'\', 25)')
-        assert_equal(result, self.generate_error_statement(3))
+    def test_import_pdb_use_set_trace(self):
+        result = check_code_for_debugger_statements('import pdb;pdb.set_trace();')
+        assert_equal(result,
+            [
+                self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
+                self.generate_error_statement(1, 11, 'set_trace', 'pdb', 'set_trace')
+            ]
+        )
 
 
-class TestSingleQuotesIPDB(Flake8DebuggerTestCases):
-    def test_print_in_one_single_quote_single_line_string_not_false_positive(self):
-        result = check_debug_statements('a(\'import ipdb\', 25)')
-        assert result is None
-
-    def test_print_in_between_two_one_single_quote_single_line_string(self):
-        result = check_debug_statements('a(\'import ipdb\' import ipdb \'import ipdb\', 25)')
-        assert_equal(result, self.generate_error_statement(3))
-
-    def test_print_in_three_single_quote_single_line_string_not_false_positive(self):
-        result = check_debug_statements('a(\'\'\'import ipdb\'\'\', 25)')
-        assert result is None
-
-    def test_print_in_between_two_three_single_quote_single_line_string(self):
-        result = check_debug_statements('a(\'\'\'import ipdb\'\'\' import ipdb \'\'\'import ipdb\'\'\', 25)')
-        assert_equal(result, self.generate_error_statement(3))
+class TestImportAsCases(Flake8DebuggerTestCases):
+    def test_import_ipdb_as(self):
+        result = check_code_for_debugger_statements('import math, ipdb as sif, collections')
+        assert_equal(result, [self.generate_error_statement(1, 0, 'import', 'ipdb', 'sif')])
 
 
-class TestDoubleQuotesPDB(Flake8DebuggerTestCases):
-    def test_print_in_one_double_quote_single_line_string_not_false_positive(self):
-        result = check_debug_statements('a("import pdb", 25)')
-        assert result is None
-
-    def test_print_in_between_two_one_double_quote_single_line_string(self):
-        result = check_debug_statements('a("import pdb" import pdb "import pdb", 25)')
-        assert_equal(result, self.generate_error_statement(3))
-
-    def test_print_in_three_double_quote_single_line_string_not_false_positive(self):
-        result = check_debug_statements('a("""import pdb""", 25)')
-        assert result is None
-
-    def test_print_in_between_two_three_double_quote_single_line_string(self):
-        result = check_debug_statements('a("import pdb" import pdb "import pdb", 25)')
-        assert_equal(result, self.generate_error_statement(3))
+class TestModuleASSetTraceCases(Flake8DebuggerTestCases):
+    def test_import_ipdb_as_use_set_trace(self):
+        result = check_code_for_debugger_statements('import ipdb as sif;sif.set_trace();')
+        assert_equal(result,
+            [
+                self.generate_error_statement(1, 0, 'import', 'ipdb', 'sif'),
+                self.generate_error_statement(1, 19, 'set_trace', 'ipdb', 'set_trace')
+            ]
+        )
 
 
-class TestDoubleQuotesIPDB(Flake8DebuggerTestCases):
-    def test_print_in_one_double_quote_single_line_string_not_false_positive(self):
-        result = check_debug_statements('a("import ipdb", 25)')
-        assert result is None
+class TestImportSetTraceCases(Flake8DebuggerTestCases):
+    def test_import_set_trace_ipdb(self):
+        result = check_code_for_debugger_statements('from ipdb import run, set_trace;set_trace();')
+        assert_equal(result,
+            [
+                self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
+                self.generate_error_statement(1, 32, 'set_trace', 'debugger', 'set_trace')
+            ]
+        )
 
-    def test_print_in_between_two_one_double_quote_single_line_string(self):
-        result = check_debug_statements('a("import ipdb" import ipdb "import ipdb", 25)')
-        assert_equal(result, self.generate_error_statement(3))
+    def test_import_set_trace_pdb(self):
+        result = check_code_for_debugger_statements('from pdb import set_trace; set_trace();')
+        assert_equal(result,
+            [
+                self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
+                self.generate_error_statement(1, 27, 'set_trace', 'debugger', 'set_trace')
+            ]
+        )
 
-    def test_print_in_three_double_quote_single_line_string_not_false_positive(self):
-        result = check_debug_statements('a("""import ipdb""", 25)')
-        assert result is None
-
-    def test_print_in_between_two_three_double_quote_single_line_string(self):
-        result = check_debug_statements('a("import ipdb" import ipdb "import ipdb", 25)')
-        assert_equal(result, self.generate_error_statement(3))
+    def test_import_set_trace_ipdb_as_and_use(self):
+        result = check_code_for_debugger_statements('from ipdb import run, set_trace as sif; sif();')
+        assert_equal(result,
+            [
+                self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
+                self.generate_error_statement(1, 40, 'set_trace', 'debugger', 'sif')
+            ]
+        )
