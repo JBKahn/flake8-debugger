@@ -1,10 +1,9 @@
-import pep8
 import ast
 import tokenize
 
 from sys import stdin
 
-__version__ = '1.3'
+__version__ = '1.3.1'
 
 DEBUGGER_ERROR_CODE = 'T002'
 
@@ -52,96 +51,71 @@ def check_tree_for_debugger_statements(tree, noqa):
     ipdb_set_trace_name = 'set_trace'
     pdb_name = 'pdb'
     pdb_set_trace_name = 'set_trace'
+    pdb_found = False
+    ipdb_found = False
     for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            pdb_found = False
-            ipdb_found = False
+        if isinstance(node, ast.Import) or isinstance(node, ast.ImportFrom):
+            pdb_found_here = False
+            ipdb_found_here = False
             if hasattr(node, 'module') and node.module not in ['ipdb', 'pdb']:
                 continue
             elif hasattr(node, 'module'):
-                ipdb_found = node.module == 'ipdb'
-                pdb_found = not ipdb_found
-            if hasattr(node, 'names'):
-                module_names = [module_name.name for module_name in node.names]
+                ipdb_found = ipdb_found_here = node.module == 'ipdb'
+                pdb_found = pdb_found_here = not ipdb_found
 
+            module_names = (hasattr(node, 'names') and [module_name.name for module_name in node.names]) or []
+            if isinstance(node, ast.Import):
                 if 'ipdb' in module_names:
                     ipdb_index = module_names.index('ipdb')
                     if hasattr(node.names[ipdb_index], 'asname'):
                         ipdb_name = node.names[ipdb_index].asname or ipdb_name
-                        ipdb_found = True
+                        ipdb_found = ipdb_found_here = True
 
                 if 'pdb' in module_names:
                     pdb_index = module_names.index('pdb')
-                    if  hasattr(node.names[pdb_index], 'asname'):
+                    if hasattr(node.names[pdb_index], 'asname'):
                         pdb_name = node.names[pdb_index].asname or pdb_name
-                        pdb_found = True
+                        pdb_found = pdb_found_here = True
+
+            elif isinstance(node, ast.ImportFrom):
+                if 'set_trace' not in module_names:
+                    continue
+                trace_index = 'set_trace' in module_names and module_names.index('set_trace')
+                if hasattr(node.names[trace_index], 'asname'):
+                    if pdb_found_here:
+                        pdb_set_trace_name = node.names[trace_index].asname or pdb_set_trace_name
+                    if ipdb_found_here:
+                        ipdb_set_trace_name = node.names[trace_index].asname or ipdb_set_trace_name
 
             if node.lineno not in noqa:
-                if ipdb_found:
+                if ipdb_found_here:
                     errors.append({
                         "message": format_debugger_message('import', 'ipdb', ipdb_name),
                         "line": node.lineno,
                         "col": node.col_offset
                     })
-                if pdb_found:
+                if pdb_found_here:
                     errors.append({
                         "message": format_debugger_message('import', 'pdb', pdb_name),
                         "line": node.lineno,
                         "col": node.col_offset
                     })
-        elif isinstance(node, ast.ImportFrom):
-            pdb_found = False
-            ipdb_found = False
-            if hasattr(node, 'module') and node.module not in ['ipdb', 'pdb']:
-                continue
-            else:
-                ipdb_found = node.module == 'ipdb'
-                pdb_found = not ipdb_found
-
-            module_names = [module_name.name for module_name in node.names]
-            if 'set_trace' not in module_names:
-                continue
-            trace_index = 'set_trace' in module_names and module_names.index('set_trace')
-            if hasattr(node.names[trace_index], 'asname'):
-                if pdb_found:
-                    pdb_set_trace_name = node.names[trace_index].asname or pdb_set_trace_name
-                if ipdb_found:
-                    ipdb_set_trace_name = node.names[trace_index].asname or ipdb_set_trace_name
-            if node.lineno not in noqa:
-                if ipdb_found:
-                    errors.append({
-                        "message": format_debugger_message('import', 'ipdb', ipdb_name),
-                        "line": node.lineno,
-                        "col": node.col_offset
-                    })
-                if pdb_found:
-                    errors.append({
-                        "message": format_debugger_message('import', 'pdb', pdb_name),
-                        "line": node.lineno,
-                        "col": node.col_offset
-                    })
-        elif hasattr(node, 'value') and  isinstance(node.value, ast.Call):
-            if (hasattr(node.value.func, 'attr') and node.value.func.attr == pdb_set_trace_name or hasattr(node.value.func, 'id') and node.value.func.id == pdb_set_trace_name) and node.lineno not in noqa:
-                if (hasattr(node.value.func, 'value') and node.value.func.value.id == pdb_name):
+        elif isinstance(node, ast.Call):
+            if (
+                (
+                    hasattr(node.func, 'attr') and node.func.attr in [pdb_set_trace_name, ipdb_set_trace_name] or
+                    hasattr(node.func, 'id') and node.func.id in [pdb_set_trace_name, ipdb_set_trace_name]
+                ) and node.lineno not in noqa
+            ):
+                if (hasattr(node.func, 'value') and node.func.value.id == pdb_name) and pdb_found:
                     debugger_name = 'pdb'
-                elif (hasattr(node.value.func, 'value') and node.value.func.value.id == ipdb_name):
+                elif (hasattr(node.func, 'value') and node.func.value.id == ipdb_name) and ipdb_found:
                     debugger_name = 'ipdb'
                 else:
                     debugger_name = 'debugger'
+                set_trace_name = hasattr(node.func, 'attr') and node.func.attr or hasattr(node.func, 'id') and node.func.id
                 errors.append({
-                    "message": format_debugger_message('set_trace', debugger_name, pdb_set_trace_name),
-                    "line": node.lineno,
-                    "col": node.col_offset
-                })
-            elif (hasattr(node.value.func, 'attr') and node.value.func.attr == ipdb_set_trace_name or hasattr(node.value.func, 'id') and node.value.func.id == ipdb_set_trace_name) and node.lineno not in noqa:
-                if (hasattr(node.value.func, 'value') and node.value.func.value.id == ipdb_name):
-                    debugger_name = 'ipdb'
-                elif (hasattr(node.value.func, 'value') and node.value.func.value.id == pdb_name):
-                    debugger_name = 'pdb'
-                else:
-                    debugger_name = 'debugger'
-                errors.append({
-                    "message": format_debugger_message('set_trace', debugger_name, ipdb_set_trace_name),
+                    "message": format_debugger_message('set_trace', debugger_name, set_trace_name),
                     "line": node.lineno,
                     "col": node.col_offset
                 })
