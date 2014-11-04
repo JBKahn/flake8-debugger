@@ -1,4 +1,4 @@
-from flake8_debugger import check_code_for_debugger_statements, format_debugger_message, DEBUGGER_ERROR_CODE
+from flake8_debugger import check_code_for_debugger_statements, format_debugger_message
 from nose.tools import assert_equal
 
 
@@ -19,6 +19,16 @@ class TestImportCases(Flake8DebuggerTestCases):
     def test_import(self):
         result = check_code_for_debugger_statements('import pdb')
         assert_equal(result, [self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb')])
+
+    def test_import_both_same_line(self):
+        result = check_code_for_debugger_statements('import pdb, ipdb')
+        assert_equal(
+            result,
+            [
+                self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
+                self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
+            ]
+        )
 
     def test_import_math(self):
         result = check_code_for_debugger_statements('import math')
@@ -47,6 +57,17 @@ class TestModuleSetTraceCases(Flake8DebuggerTestCases):
             [
                 self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
                 self.generate_error_statement(1, 11, 'set_trace', 'pdb', 'set_trace')
+            ]
+        )
+
+    def test_import_pdb_use_set_trace_twice(self):
+        result = check_code_for_debugger_statements('import pdb;pdb.set_trace() and pdb.set_trace();')
+        assert_equal(
+            result,
+            [
+                self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
+                self.generate_error_statement(1, 11, 'set_trace', 'pdb', 'set_trace'),
+                self.generate_error_statement(1, 31, 'set_trace', 'pdb', 'set_trace')
             ]
         )
 
