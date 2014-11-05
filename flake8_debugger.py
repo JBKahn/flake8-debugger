@@ -3,7 +3,7 @@ import tokenize
 
 from sys import stdin
 
-__version__ = '1.3.1'
+__version__ = '1.3.2'
 
 DEBUGGER_ERROR_CODE = 'T002'
 
@@ -108,11 +108,18 @@ def check_tree_for_debugger_statements(tree, noqa):
                 ) and node.lineno not in noqa
             ):
                 if (hasattr(node.func, 'value') and node.func.value.id == pdb_name) and pdb_found:
-                    debugger_name = 'pdb'
+                    debugger_name = pdb_name
                 elif (hasattr(node.func, 'value') and node.func.value.id == ipdb_name) and ipdb_found:
-                    debugger_name = 'ipdb'
+                    debugger_name = ipdb_name
                 else:
-                    debugger_name = 'debugger'
+                    if not pdb_found:
+                        debugger_name = ipdb_name
+                    elif not ipdb_found:
+                        debugger_name = pdb_name
+                    else:
+                        debugger_name = 'debugger'
+                if not pdb_found and not ipdb_found:
+                    continue
                 set_trace_name = hasattr(node.func, 'attr') and node.func.attr or hasattr(node.func, 'id') and node.func.id
                 errors.append({
                     "message": format_debugger_message('set_trace', debugger_name, set_trace_name),

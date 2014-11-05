@@ -71,6 +71,13 @@ class TestModuleSetTraceCases(Flake8DebuggerTestCases):
             ]
         )
 
+    def test_import_other_module_as_set_trace_and_use_it(self):
+        result = check_code_for_debugger_statements('from math import Max as set_trace\nset_trace()')
+        assert_equal(
+            result,
+            []
+        )
+
 
 class TestImportAsCases(Flake8DebuggerTestCases):
     def test_import_ipdb_as(self):
@@ -85,7 +92,7 @@ class TestModuleASSetTraceCases(Flake8DebuggerTestCases):
             result,
             [
                 self.generate_error_statement(1, 0, 'import', 'ipdb', 'sif'),
-                self.generate_error_statement(1, 19, 'set_trace', 'ipdb', 'set_trace')
+                self.generate_error_statement(1, 19, 'set_trace', 'sif', 'set_trace')
             ]
         )
 
@@ -97,7 +104,7 @@ class TestImportSetTraceCases(Flake8DebuggerTestCases):
             result,
             [
                 self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                self.generate_error_statement(1, 32, 'set_trace', 'debugger', 'set_trace')
+                self.generate_error_statement(1, 32, 'set_trace', 'ipdb', 'set_trace')
             ]
         )
 
@@ -107,7 +114,7 @@ class TestImportSetTraceCases(Flake8DebuggerTestCases):
             result,
             [
                 self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
-                self.generate_error_statement(1, 27, 'set_trace', 'debugger', 'set_trace')
+                self.generate_error_statement(1, 27, 'set_trace', 'pdb', 'set_trace')
             ]
         )
 
@@ -117,7 +124,7 @@ class TestImportSetTraceCases(Flake8DebuggerTestCases):
             result,
             [
                 self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                self.generate_error_statement(1, 40, 'set_trace', 'debugger', 'sif')
+                self.generate_error_statement(1, 40, 'set_trace', 'ipdb', 'sif')
             ]
         )
 
@@ -127,7 +134,7 @@ class TestImportSetTraceCases(Flake8DebuggerTestCases):
             result,
             [
                 self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                self.generate_error_statement(1, 49, 'set_trace', 'debugger', 'sif')
+                self.generate_error_statement(1, 49, 'set_trace', 'ipdb', 'sif')
             ]
         )
 
@@ -137,7 +144,7 @@ class TestImportSetTraceCases(Flake8DebuggerTestCases):
             result,
             [
                 self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                self.generate_error_statement(1, 48, 'set_trace', 'debugger', 'sif')
+                self.generate_error_statement(1, 48, 'set_trace', 'ipdb', 'sif')
             ]
         )
 
@@ -152,5 +159,5 @@ class TestImportSetTraceCases(Flake8DebuggerTestCases):
         result = check_code_for_debugger_statements('from ipdb import run, set_trace as sif # noqa\nTrue or sif()')
         assert_equal(
             result,
-            [self.generate_error_statement(2, 8, 'set_trace', 'debugger', 'sif')]
+            [self.generate_error_statement(2, 8, 'set_trace', 'ipdb', 'sif')]
         )
