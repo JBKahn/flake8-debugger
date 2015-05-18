@@ -2,11 +2,6 @@ machine:
   python:
     version: 2.6.8
 
-dependencies:
-  override:
-  - pyenv install 3.4.2
-  - pip install coverage
-
 test:
   pre:
   #INSTALL AND SETUP
