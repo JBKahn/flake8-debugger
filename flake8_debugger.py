@@ -3,7 +3,7 @@ import tokenize
 
 from sys import stdin
 
-__version__ = '1.3.2'
+__version__ = '1.4.0'
 
 DEBUGGER_ERROR_CODE = 'T002'
 
