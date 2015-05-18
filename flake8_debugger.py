@@ -3,7 +3,7 @@ import tokenize
 
 from sys import stdin
 
-__version__ = '1.3.2'
+__version__ = '1.4.0'
 
 DEBUGGER_ERROR_CODE = 'T002'
 
@@ -47,82 +47,94 @@ def format_debugger_message(item_type, item_found, name_used):
 
 def check_tree_for_debugger_statements(tree, noqa):
     errors = []
-    ipdb_name = 'ipdb'
-    ipdb_set_trace_name = 'set_trace'
-    pdb_name = 'pdb'
-    pdb_set_trace_name = 'set_trace'
-    pdb_found = False
-    ipdb_found = False
+    debugger_states = {
+        'pdb': {
+            'found': False,
+            'name': None,
+            'trace_method': 'set_trace'
+        },
+        'ipdb': {
+            'found': False,
+            'name': None,
+            'trace_method': 'set_trace'
+        },
+        'IPython.terminal.embed': {
+            'found': False,
+            'name': None,
+            'trace_method': 'InteractiveShellEmbed'
+        },
+        'IPython.frontend.terminal.embed': {
+            'found': False,
+            'name': None,
+            'trace_method': 'InteractiveShellEmbed'
+        }
+    }
     for node in ast.walk(tree):
         if isinstance(node, ast.Import) or isinstance(node, ast.ImportFrom):
-            pdb_found_here = False
-            ipdb_found_here = False
-            if hasattr(node, 'module') and node.module not in ['ipdb', 'pdb']:
+            debuggers_found_here = {}
+            for debugger in debugger_states.keys():
+                debuggers_found_here[debugger] = False
+
+            if hasattr(node, 'module') and node.module not in debugger_states.keys():
                 continue
             elif hasattr(node, 'module'):
-                ipdb_found = ipdb_found_here = node.module == 'ipdb'
-                pdb_found = pdb_found_here = not ipdb_found
+                debuggers_found_here[node.module] = True
+                debugger_states[node.module]['name'] = node.module
+                debugger_states[node.module]['found'] = True
 
             module_names = (hasattr(node, 'names') and [module_name.name for module_name in node.names]) or []
             if isinstance(node, ast.Import):
-                if 'ipdb' in module_names:
-                    ipdb_index = module_names.index('ipdb')
-                    if hasattr(node.names[ipdb_index], 'asname'):
-                        ipdb_name = node.names[ipdb_index].asname or ipdb_name
-                        ipdb_found = ipdb_found_here = True
-
-                if 'pdb' in module_names:
-                    pdb_index = module_names.index('pdb')
-                    if hasattr(node.names[pdb_index], 'asname'):
-                        pdb_name = node.names[pdb_index].asname or pdb_name
-                        pdb_found = pdb_found_here = True
+                for debugger in debugger_states.keys():
+                    if debugger in module_names:
+                        index = module_names.index(debugger)
+                        if hasattr(node.names[index], 'asname'):
+                            debugger_states[debugger]['name'] = node.names[index].asname or debugger
+                            debugger_states[debugger]['found'] = True
+                            debuggers_found_here[debugger] = True
 
             elif isinstance(node, ast.ImportFrom):
-                if 'set_trace' not in module_names:
+                trace_methods = [debugger_states[debugger]['trace_method'] for debugger in debugger_states if debugger_states[debugger]['found']]
+                traces_found = filter(lambda trace: trace in module_names, trace_methods)
+                if not traces_found:
                     continue
-                trace_index = 'set_trace' in module_names and module_names.index('set_trace')
-                if hasattr(node.names[trace_index], 'asname'):
-                    if pdb_found_here:
-                        pdb_set_trace_name = node.names[trace_index].asname or pdb_set_trace_name
-                    if ipdb_found_here:
-                        ipdb_set_trace_name = node.names[trace_index].asname or ipdb_set_trace_name
+                for trace in traces_found:
+                    trace_index = trace in module_names and module_names.index(trace)
+                    if hasattr(node.names[trace_index], 'asname'):
+                        for debugger in debugger_states:
+                            if debuggers_found_here[debugger]:
+                                debugger_states[debugger]['trace_method'] = node.names[trace_index].asname or debugger_states[debugger]['trace_method']
 
             if node.lineno not in noqa:
-                if ipdb_found_here:
-                    errors.append({
-                        "message": format_debugger_message('import', 'ipdb', ipdb_name),
-                        "line": node.lineno,
-                        "col": node.col_offset
-                    })
-                if pdb_found_here:
-                    errors.append({
-                        "message": format_debugger_message('import', 'pdb', pdb_name),
-                        "line": node.lineno,
-                        "col": node.col_offset
-                    })
-        elif isinstance(node, ast.Call):
-            if (
-                (
-                    hasattr(node.func, 'attr') and node.func.attr in [pdb_set_trace_name, ipdb_set_trace_name] or
-                    hasattr(node.func, 'id') and node.func.id in [pdb_set_trace_name, ipdb_set_trace_name]
-                ) and node.lineno not in noqa
-            ):
-                if (hasattr(node.func, 'value') and node.func.value.id == pdb_name) and pdb_found:
-                    debugger_name = pdb_name
-                elif (hasattr(node.func, 'value') and node.func.value.id == ipdb_name) and ipdb_found:
-                    debugger_name = ipdb_name
-                else:
-                    if not pdb_found:
-                        debugger_name = ipdb_name
-                    elif not ipdb_found:
-                        debugger_name = pdb_name
+                for debugger in debugger_states.keys():
+                    if debuggers_found_here[debugger]:
+                        errors.append({
+                            'message': format_debugger_message('import', debugger, debugger_states[debugger]['name']),
+                            'line': node.lineno,
+                            'col': node.col_offset,
+                        })
+
+        elif isinstance(node, ast.Call) and node.lineno not in noqa:
+            trace_methods = [debugger_states[debugger]['trace_method'] for debugger in debugger_states if debugger_states[debugger]['found']]
+            if (getattr(node.func, 'attr', None) in trace_methods or getattr(node.func, 'id', None) in trace_methods):
+                debugger_name = None
+                for debugger in debugger_states.keys():
+                    if (
+                        (
+                            (hasattr(node.func, 'value') and node.func.value.id == debugger_states[debugger]['name']) or
+                            (hasattr(node.func, 'id') and node.func.id == debugger_states[debugger]['trace_method'])
+                        ) and debugger_states[debugger]['found']
+                    ):
+                        debugger_name = debugger_states[debugger]['name']
+                        break
+                if not debugger_name:
+                    debuggers_found = [debugger_states[debugger]['name'] for debugger in debugger_states if debugger_states[debugger]['found']]
+                    if len(debuggers_found) == 1:
+                        debugger_name = debuggers_found[0]
                     else:
                         debugger_name = 'debugger'
-                if not pdb_found and not ipdb_found:
-                    continue
                 set_trace_name = hasattr(node.func, 'attr') and node.func.attr or hasattr(node.func, 'id') and node.func.id
                 errors.append({
-                    "message": format_debugger_message('set_trace', debugger_name, set_trace_name),
+                    "message": format_debugger_message('trace method', debugger_name, set_trace_name),
                     "line": node.lineno,
                     "col": node.col_offset
                 })

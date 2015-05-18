@@ -1,7 +1,7 @@
 Flake8 debugger plugin
 ==================
 
-Check for pdb;idbp imports and set traces.
+Check for pdb;idbp imports and set traces, as well as `from IPython.terminal.embed import InteractiveShellEmbed` and `InteractiveShellEmbed()()`.
 
 This module provides a plugin for ``flake8``, the Python code checker.
 
@@ -27,6 +27,10 @@ available in ``flake8``::
 
 Changes
 -------
+
+1.4.0 - 2015-05-18
+````````````````
+* refactor detector, run tests in python 2.6, 2.7 and 3.4 as well as adding a check for InteractiveShellEmbed.
 
 1.3.2 - 2014-11-04
 ````````````````
