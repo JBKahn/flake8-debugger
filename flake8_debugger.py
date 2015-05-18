@@ -71,7 +71,9 @@ def check_tree_for_debugger_statements(tree, noqa):
     }
     for node in ast.walk(tree):
         if isinstance(node, ast.Import) or isinstance(node, ast.ImportFrom):
-            debuggers_found_here = {debugger: False for debugger in debugger_states.keys()}
+            debuggers_found_here = {}
+            for debugger in debugger_states.keys():
+                debuggers_found_here[debugger] = False
 
             if hasattr(node, 'module') and node.module not in debugger_states.keys():
                 continue
