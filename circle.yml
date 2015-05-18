@@ -1,3 +1,31 @@
 machine:
   python:
-    version: 2.7.6
+    version: 2.6.8
+
+dependencies:
+  override:
+  - pyenv install 3.4.2
+  - pip install coverage
+
+test:
+  pre:
+  #INSTALL AND SETUP
+  #ver. 2.6.8
+  - virtualenv -p ~/.pyenv/versions/2.6.8/bin/python2.6 venv26 --distribute
+  - source venv26/bin/activate ; python setup.py install ; pip install coverage
+  #ver. 2.7.9
+  - virtualenv -p ~/.pyenv/versions/2.7.9/bin/python2.7 venv27 --distribute
+  - source venv27/bin/activate ; python setup.py install ; pip install coverage
+  #ver. 3.4.2
+  - virtualenv -p ~/.pyenv/versions/3.4.2/bin/python3.4 venv34 --distribute
+  - source venv33/bin/activate ; python setup.py install ; pip install coverage
+  override:
+  #TESTS
+  #ver. 2.6.8
+  - source venv26/bin/activate ; coverage run setup.py test
+  #ver. 2.7.9
+  - source venv27/bin/activate ; coverage run setup.py test
+  #ver. 3.4.2
+  - source venv34/bin/activate ; coverage run setup.py test
+  post:
+  - coverage combine
