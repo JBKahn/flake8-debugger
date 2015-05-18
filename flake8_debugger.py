@@ -57,6 +57,16 @@ def check_tree_for_debugger_statements(tree, noqa):
             'found': False,
             'name': None,
             'trace_method': 'set_trace'
+        },
+        'IPython.terminal.embed': {
+            'found': False,
+            'name': None,
+            'trace_method': 'InteractiveShellEmbed'
+        },
+        'IPython.frontend.terminal.embed': {
+            'found': False,
+            'name': None,
+            'trace_method': 'InteractiveShellEmbed'
         }
     }
     for node in ast.walk(tree):
@@ -96,21 +106,30 @@ def check_tree_for_debugger_statements(tree, noqa):
                 for debugger in debugger_states.keys():
                     if debuggers_found_here[debugger]:
                         errors.append({
-                            'message': format_debugger_message('import', 'debugger', debugger_states[debugger]['name']),
+                            'message': format_debugger_message('import', debugger, debugger_states[debugger]['name']),
                             'line': node.lineno,
                             'col': node.col_offset,
                         })
 
-        elif isinstance(node, ast.Call):
+        elif isinstance(node, ast.Call) and node.lineno not in noqa:
             trace_methods = [debugger_states[debugger]['trace_method'] for debugger in debugger_states if debugger_states[debugger]['found']]
-            if (getattr(node.func, 'attr', None) in trace_methods or getattr(node.func, 'id', None) in trace_methods) and node.lineno not in noqa:
+            if (getattr(node.func, 'attr', None) in trace_methods or getattr(node.func, 'id', None) in trace_methods):
                 debugger_name = None
-
                 for debugger in debugger_states.keys():
-                    if (hasattr(node.func, 'value') and node.func.value.id == debugger_states[debugger]['name']) and debugger_states[debugger]['found']:
+                    if (
+                        (
+                            (hasattr(node.func, 'value') and node.func.value.id == debugger_states[debugger]['name']) or
+                            (hasattr(node.func, 'id') and node.func.id == debugger_states[debugger]['trace_method'])
+                        ) and debugger_states[debugger]['found']
+                    ):
                         debugger_name = debugger_states[debugger]['name']
                         break
-                debugger_name = debugger_name or 'debugger'
+                if not debugger_name:
+                    debuggers_found = [debugger_states[debugger]['name'] for debugger in debugger_states if debugger_states[debugger]['found']]
+                    if len(debuggers_found) == 1:
+                        debugger_name = debuggers_found[0]
+                    else:
+                        debugger_name = 'debugger'
                 set_trace_name = hasattr(node.func, 'attr') and node.func.attr or hasattr(node.func, 'id') and node.func.id
                 errors.append({
                     "message": format_debugger_message('trace method', debugger_name, set_trace_name),
