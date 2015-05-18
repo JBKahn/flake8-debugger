@@ -6,16 +6,13 @@ test:
   pre:
   #INSTALL AND SETUP
   - pyenv install 3.4.3 --force --verbose
-  #ver. 2.6.8
-  - virtualenv -p ~/.pyenv/versions/2.6.8/bin/python2.6 venv26 --distribute
-  - source venv26/bin/activate ; python setup.py install
   #ver. 2.7.9
   - virtualenv -p ~/.pyenv/versions/2.7.9/bin/python2.7 venv27 --distribute
   - source venv27/bin/activate ; python setup.py install ; pip install coverage
   override:
   #TESTS
   #ver. 2.6.8
-  - cd ~/flake8-debugger; ~/.pyenv/versions/2.7.9/bin/python2.7 setup.py install; ~/.pyenv/versions/2.7.9/bin/python2.7 setup.py test
+  - cd ~/flake8-debugger; ~/.pyenv/versions/2.6.8/bin/python2.6 setup.py install; ~/.pyenv/versions/2.6.8/bin/python2.6 setup.py test
   #ver. 2.7.9
   - source venv27/bin/activate ; coverage run setup.py test
   #ver. 3.4.3
