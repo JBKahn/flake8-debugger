@@ -2,7 +2,7 @@
 import ast
 
 
-__version__ = '2.0.0'
+__version__ = '2.1.0'
 
 DEBUGGER_ERROR_CODE = 'T002'
 
@@ -14,8 +14,22 @@ def flake8ext(f):
     return f
 
 
-def format_debugger_message(item_type, item_found, name_used):
-    return '{0} {1} for {2} found as {3}'.format(DEBUGGER_ERROR_CODE, item_type, item_found, name_used)
+def format_debugger_message(import_type, item_imported, item_alias, trace_method, trace_alias):
+    if import_type == 'import':
+        if item_imported == item_alias:
+            return '{0} import for {1} found'.format(DEBUGGER_ERROR_CODE, item_alias)
+        else:
+            return '{0} import for {1} found as {2}'.format(DEBUGGER_ERROR_CODE, item_imported, item_alias)
+    elif import_type == 'import_trace':
+        if trace_method == trace_alias:
+            return '{0} import for {1}.{2} found'.format(DEBUGGER_ERROR_CODE, item_imported, trace_method)
+        else:
+            return '{0} import for {1}.{2} found as {3}'.format(DEBUGGER_ERROR_CODE, item_imported, trace_method, trace_alias)
+    elif import_type == 'trace_used':
+        if trace_method == trace_alias:
+            return '{0} trace found: {1}.{2} used'.format(DEBUGGER_ERROR_CODE, item_imported, trace_method)
+        else:
+            return '{0} trace found: {1}.{2} used as {3}'.format(DEBUGGER_ERROR_CODE, item_imported, trace_method, trace_alias)
 
 
 debuggers = {
@@ -39,65 +53,53 @@ def check_for_debugger_import(logical_line, checker_state):
                     if debugger in module_names:
                         index = module_names.index(debugger)
                         if hasattr(node.names[index], 'asname'):
-                            yield 'import', debugger, node.names[index].asname or debugger
+                            yield 'import', debugger, node.names[index].asname or debugger, debuggers[debugger], debuggers[debugger]
                         else:
-                            yield 'import', debugger, node.module
+                            yield 'import', debugger, debugger, debuggers[debugger], debuggers[debugger]
 
             elif isinstance(node, ast.ImportFrom):
                 trace_methods = debuggers.values()
-                import ipdb; ipdb.set_trace()
-                traces_found = set(filter(lambda trace: trace in module_names, trace_methods))
+                traces_found = set([trace for trace in trace_methods if trace in module_names])
                 if not traces_found:
                     continue
                 for trace in traces_found:
                     trace_index = trace in module_names and module_names.index(trace)
                     if hasattr(node.names[trace_index], 'asname'):
-                        yield 'import', node.module, node.module
-                        yield 'set_trace', node.module, node.names[trace_index].asname or debuggers[node.module]
+                        yield 'import_trace', node.module, node.module, debuggers[node.module], node.names[trace_index].asname or debuggers[node.module]
+                    else:
+                        yield 'import_trace', node.module, node.module, debuggers[node.module], debuggers[node.module]
 
 
 def check_for_set_trace_usage(logical_line, checker_state):
     for node in ast.walk(ast.parse(logical_line)):
         if isinstance(node, ast.Call):
-            import ipdb; ipdb.set_trace()
-            trace_methods = [checker_state['debuggers_found'][alias]['set_trace'] for alias in checker_state['debuggers_found'].keys()]
+            trace_methods = [checker_state['debuggers_found'][debugger]['trace_alias'] for debugger in checker_state['debuggers_found'].keys()]
             if (getattr(node.func, 'attr', None) in trace_methods or getattr(node.func, 'id', None) in trace_methods):
-                debugger_name = None
-                for debugger in checker_state.keys():
-                    trace_method_name = checker_state[debugger]['set_trace']
+                for debugger, debugger_info in checker_state['debuggers_found'].viewitems():
+                    trace_method_name = checker_state['debuggers_found'][debugger]['trace_alias']
                     if (
-                        (hasattr(node.func, 'value') and node.func.value.id == debugger) or
+                        (hasattr(node.func, 'value') and node.func.value.id == debugger_info['alias']) or
                         (hasattr(node.func, 'id') and trace_method_name and node.func.id == trace_method_name)
                     ):
-                        debugger_name = debugger
+                        yield 'trace_used', debugger, debugger_info['alias'], debugger_info['trace_method'], debugger_info['trace_alias']
                         break
-
-                if not debugger_name:
-                    debuggers_found = checker_state.keys()
-                    if len(debuggers_found) == 1:
-                        debugger_name = debuggers_found[0]
-                    else:
-                        debugger_name = 'debugger'
-                set_trace_name = hasattr(node.func, 'attr') and node.func.attr or hasattr(node.func, 'id') and node.func.id
-                yield debugger_name, set_trace_name
 
 
 @flake8ext
 def debugger_usage(logical_line, checker_state=None, noqa=None):
-    if noqa:
-        return
     if 'debuggers_found' not in checker_state:
         checker_state['debuggers_found'] = {}
     generator = check_for_debugger_import(logical_line, checker_state.copy())
-    for type_found, item_imported, item_alias in generator:
-        if item_imported is not None:
-            previous_state = checker_state['debuggers_found'].get(item_alias, {})
-            previous_state[type_found] = item_imported
-            previous_state['set_trace'] = previous_state.get('set_trace', debuggers[item_imported])
-            checker_state['debuggers_found'][item_alias] = previous_state
-            yield 0, format_debugger_message(type_found, item_imported, item_alias)
 
-    generator = check_for_set_trace_usage(logical_line, checker_state.copy())
-    for set_trace_used, set_trace_alias in generator:
-        if set_trace_used is not None:
-            yield 0, format_debugger_message('trace method', set_trace_used, set_trace_alias)
+    for import_type, item_imported, item_alias, trace_method, trace_alias in generator:
+        if item_imported is not None:
+            checker_state['debuggers_found'][item_imported] = {
+                'alias': item_alias, 'trace_method': trace_method, 'trace_alias': trace_alias
+            }
+            if not noqa:
+                yield 0, format_debugger_message(import_type, item_imported, item_alias, trace_method, trace_alias)
+
+    if not noqa:
+        generator = check_for_set_trace_usage(logical_line, checker_state.copy())
+        for usage in generator:
+            yield 0, format_debugger_message(*usage)
