@@ -7,7 +7,7 @@ except ImportError:
 
 from flake8_debugger import debugger_usage
 
-from unittest2 import skip, skipIf, TestCase
+from unittest2 import skipIf, TestCase
 
 from nose.tools import assert_equal
 
@@ -109,10 +109,22 @@ if skipIf:
         skipIf,
         condition=not noqa_supported,
         reason='noqa is not supported on this flake8 version')
+
+    skip_if_unsupported = functools.partial(
+        skipIf,
+        condition=True,
+        reason='we have not solved this issue')
 else:
     # Python 2.6 does not have skipIf or SkipTest, so
     # completely skip the test which will be reported as success.
     def skip_if_noqa_unsupported():
+        """Decorator to unconditionally skip test method."""
+        def noop(*args, **kwargs):
+            pass
+
+        return noop
+
+    def skip_if_unsupported():
         """Decorator to unconditionally skip test method."""
         def noop(*args, **kwargs):
             pass
@@ -142,7 +154,7 @@ class TestQA(Flake8DebuggerTestCases):
 
         assert_equal(result, expected_result)
 
-    @skip("Not yet supported")
+    @skip_if_unsupported()
     def test_catches_simple_debugger_when_called_off_var(self):
         result = check_code_for_debugger_statements('import ipdb\ntest = ipdb.set_trace\ntest()')
 
