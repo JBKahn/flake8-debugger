@@ -7,10 +7,7 @@ except ImportError:
 
 from flake8_debugger import debugger_usage
 
-try:
-    from unittest2 import skip, skipIf, TestCase
-except ImportError:
-    skipIf = None
+from unittest2 import skip, skipIf, TestCase
 
 from nose.tools import assert_equal
 
