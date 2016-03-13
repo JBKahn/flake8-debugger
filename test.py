@@ -8,7 +8,7 @@ except ImportError:
 from flake8_debugger import debugger_usage
 
 try:
-    from unittest import skip, skipIf
+    from unittest2 import skip, skipIf, TestCase
 except ImportError:
     skipIf = None
 
@@ -102,7 +102,7 @@ def check_code_for_debugger_statements(code):
     return report._results
 
 
-class Flake8DebuggerTestCases(object):
+class Flake8DebuggerTestCases(TestCase):
     def generate_error_statement(self, line, col, item_type, item_found, name_used):
         return {}
 
