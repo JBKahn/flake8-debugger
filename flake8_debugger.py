@@ -75,7 +75,7 @@ def check_for_set_trace_usage(logical_line, checker_state):
         if isinstance(node, ast.Call):
             trace_methods = [checker_state['debuggers_found'][debugger]['trace_alias'] for debugger in checker_state['debuggers_found'].keys()]
             if (getattr(node.func, 'attr', None) in trace_methods or getattr(node.func, 'id', None) in trace_methods):
-                for debugger, debugger_info in checker_state['debuggers_found'].viewitems():
+                for debugger, debugger_info in checker_state['debuggers_found'].items():
                     trace_method_name = checker_state['debuggers_found'][debugger]['trace_alias']
                     if (
                         (hasattr(node.func, 'value') and node.func.value.id == debugger_info['alias']) or
