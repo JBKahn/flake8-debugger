@@ -52,10 +52,7 @@ def check_for_debugger_import(logical_line, checker_state):
                 for debugger in debuggers.keys():
                     if debugger in module_names:
                         index = module_names.index(debugger)
-                        if hasattr(node.names[index], 'asname'):
-                            yield 'import', debugger, node.names[index].asname or debugger, debuggers[debugger], debuggers[debugger]
-                        else:
-                            yield 'import', debugger, debugger, debuggers[debugger], debuggers[debugger]
+                        yield 'import', debugger, getattr(node.names[index], 'asname', None) or debugger, debuggers[debugger], debuggers[debugger]
 
             elif isinstance(node, ast.ImportFrom):
                 trace_methods = debuggers.values()
@@ -64,10 +61,7 @@ def check_for_debugger_import(logical_line, checker_state):
                     continue
                 for trace in traces_found:
                     trace_index = trace in module_names and module_names.index(trace)
-                    if hasattr(node.names[trace_index], 'asname'):
-                        yield 'import_trace', node.module, node.module, debuggers[node.module], node.names[trace_index].asname or debuggers[node.module]
-                    else:
-                        yield 'import_trace', node.module, node.module, debuggers[node.module], debuggers[node.module]
+                    yield 'import_trace', node.module, node.module, debuggers[node.module], getattr(node.names[trace_index], 'asname', None) or debuggers[node.module]
 
 
 def check_for_set_trace_usage(logical_line, checker_state):
