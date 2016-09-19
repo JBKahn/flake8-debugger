@@ -104,32 +104,15 @@ class Flake8DebuggerTestCases(TestCase):
         return {}
 
 
-if skipIf:
-    skip_if_noqa_unsupported = functools.partial(
-        skipIf,
-        condition=not noqa_supported,
-        reason='noqa is not supported on this flake8 version')
+skip_if_noqa_unsupported = functools.partial(
+    skipIf,
+    condition=not noqa_supported,
+    reason='noqa is not supported on this flake8 version')
 
-    skip_if_unsupported = functools.partial(
-        skipIf,
-        condition=True,
-        reason='we have not solved this issue')
-else:
-    # Python 2.6 does not have skipIf or SkipTest, so
-    # completely skip the test which will be reported as success.
-    def skip_if_noqa_unsupported():
-        """Decorator to unconditionally skip test method."""
-        def noop(*args, **kwargs):
-            pass
-
-        return noop
-
-    def skip_if_unsupported():
-        """Decorator to unconditionally skip test method."""
-        def noop(*args, **kwargs):
-            pass
-
-        return noop
+skip_if_unsupported = functools.partial(
+    skipIf,
+    condition=True,
+    reason='we have not solved this issue')
 
 
 class TestQA(Flake8DebuggerTestCases):
