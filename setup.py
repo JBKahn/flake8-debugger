@@ -20,7 +20,7 @@ def get_long_description():
 
 install_requires = ['flake8']
 
-test_requires = ['nose', 'flake8>=1.5', 'unittest2==1.1.0']
+test_requires = ['nose', 'flake8>=1.5', 'unittest2==1.1.0', 'pep8']
 
 setup(
     name='flake8-debugger',
