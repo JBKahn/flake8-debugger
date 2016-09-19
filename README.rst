@@ -28,6 +28,12 @@ available in ``flake8``::
 Changes
 -------
 
+2.0.0 - 2016-09-19
+````````````````
+* refactor detector
+* drop official support for python 2.6 and 3.3
+
+
 1.4.0 - 2015-05-18
 ````````````````
 * refactor detector, run tests in python 2.6, 2.7 and 3.4 as well as adding a check for InteractiveShellEmbed.

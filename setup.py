@@ -20,7 +20,7 @@ def get_long_description():
 
 install_requires = ['flake8']
 
-test_requires = ['nose']
+test_requires = ['nose', 'flake8>=1.5', 'unittest2==1.1.0', 'pep8']
 
 setup(
     name='flake8-debugger',
@@ -36,7 +36,7 @@ setup(
     zip_safe=False,
     entry_points={
         'flake8.extension': [
-            'flake8_debugger = flake8_debugger:DebugStatementChecker',
+            'flake8_debugger = flake8_debugger:debugger_usage',
         ],
     },
     install_requires=install_requires,
@@ -50,6 +50,9 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Topic :: Software Development :: Libraries :: Python Modules',
-        'Topic :: Software Development :: Quality Assurance'
+        'Topic :: Software Development :: Quality Assurance',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
     ],
 )

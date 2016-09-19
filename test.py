@@ -1,31 +1,196 @@
-from flake8_debugger import check_code_for_debugger_statements, format_debugger_message
+import functools
+
+try:
+    from flake8 import pep8
+except ImportError:
+    import pep8
+
+from flake8_debugger import debugger_usage
+
+from unittest2 import skipIf, TestCase
+
 from nose.tools import assert_equal
 
 
-# Python 3 detects the col as the column with the execution brackets rather than the function name. So we will attempt both when necessary.
+if hasattr(pep8, 'BaseReport'):
+    BaseReport = pep8.BaseReport
+else:
+    class BaseReport(object):
+        def error(self, line_number, offset, text, check):
+            code = text[0:4]
+            return code
 
 
-class Flake8DebuggerTestCases(object):
+if hasattr(pep8, 'StyleGuide'):
+    StyleGuide = pep8.StyleGuide
+else:
+    StyleGuide = object
+
+
+class CaptureReport(BaseReport):
+    """Collect the results of the checks."""
+
+    def __init__(self, options):
+        self._results = []
+        super(CaptureReport, self).__init__(options)
+
+    def error(self, line_number, offset, text, check):
+        """Store each error."""
+        code = super(CaptureReport, self).error(line_number, offset,
+                                                text, check)
+        if code:
+            record = {
+                'line': line_number,
+                'col': offset,
+                'message': '{0} {1}'.format(code, text[5:]),
+            }
+            self._results.append(record)
+        return code
+
+
+class DebuggerTestStyleGuide(StyleGuide):
+
+    logical_checks = [
+        ('debugger_usage', debugger_usage, ['logical_line', 'checker_state', 'noqa']),
+    ]
+    physical_checks = []
+    ast_checks = []
+    max_line_length = None
+    hang_closing = False
+    verbose = False
+    benchmark_keys = {'files': 0, 'physical lines': 0, 'logical lines': 0}
+
+
+_debugger_test_style = DebuggerTestStyleGuide()
+_inspect_checker = pep8.Checker('foo')
+
+
+noqa_supported = hasattr(pep8, 'noqa')
+
+if not noqa_supported:
+    # remove noqa
+    _debugger_test_style.logical_checks[0] = (
+        'debugger_usage', debugger_usage, ['logical_line', 'checker_state'])
+
+
+def old_pep8_message(report, text):
+    """Capture old message."""
+    filename, line_number, offset, error = text.split(':')
+    line_number = int(line_number)
+    offset = int(offset) - 1
+    code = error[1:5]
+    text = error[7:]
+    report.error(line_number, offset, text, code)
+
+
+def check_code_for_debugger_statements(code):
+    """Process code using pep8 Checker and return all errors."""
+    report = CaptureReport(options=_debugger_test_style)
+    lines = [line + '\n' for line in code.split('\n')]
+    if hasattr(pep8, 'options'):
+        pep8.options = _debugger_test_style
+        checker = pep8.Checker(lines=lines)
+        pep8.message = functools.partial(old_pep8_message, report)
+    else:
+        checker = pep8.Checker(filename=None, lines=lines,
+                               options=_debugger_test_style, report=report)
+
+    checker.check_all()
+    return report._results
+
+
+class Flake8DebuggerTestCases(TestCase):
     def generate_error_statement(self, line, col, item_type, item_found, name_used):
-        return {
-            'message': format_debugger_message(item_type, item_found, name_used),
-            'line': line,
-            'col': col
-        }
+        return {}
+
+
+skip_if_noqa_unsupported = functools.partial(
+    skipIf,
+    condition=not noqa_supported,
+    reason='noqa is not supported on this flake8 version')
+
+skip_if_unsupported = functools.partial(
+    skipIf,
+    condition=True,
+    reason='we have not solved this issue')
+
+
+class TestQA(Flake8DebuggerTestCases):
+
+    def test_catches_simple_debugger(self):
+        result = check_code_for_debugger_statements('from ipdb import set_trace as r\nr()')
+
+        expected_result = [
+            {'line': 1, 'message': 'T002 import for ipdb.set_trace found as r', 'col': 0},
+            {'line': 2, 'message': 'T002 trace found: ipdb.set_trace used as r', 'col': 0}
+        ]
+
+        assert_equal(result, expected_result)
+
+    def test_catches_simple_debugger_when_called_off_lib(self):
+        result = check_code_for_debugger_statements('import ipdb\nipdb.set_trace()')
+
+        expected_result = [
+            {'line': 1, 'message': 'T002 import for ipdb found', 'col': 0},
+            {'line': 2, 'message': 'T002 trace found: ipdb.set_trace used', 'col': 0}
+        ]
+
+        assert_equal(result, expected_result)
+
+    @skip_if_unsupported()
+    def test_catches_simple_debugger_when_called_off_var(self):
+        result = check_code_for_debugger_statements('import ipdb\ntest = ipdb.set_trace\ntest()')
+
+        expected_result = [
+            {'line': 1, 'message': 'T002 import for ipdb found', 'col': 0},
+            {'line': 3, 'message': 'T002 trace found: ipdb.set_trace used', 'col': 0}
+        ]
+        assert_equal(result, expected_result)
+
+
+class TestNoQA(Flake8DebuggerTestCases):
+
+    @skip_if_noqa_unsupported()
+    def test_skip_import(self):
+        result = check_code_for_debugger_statements('from ipdb import set_trace as r # noqa\nr()')
+
+        expected_result = [
+            {'line': 2, 'message': 'T002 trace found: ipdb.set_trace used as r', 'col': 0}
+        ]
+
+        assert_equal(result, expected_result)
+
+    @skip_if_noqa_unsupported()
+    def test_skip_usage(self):
+        result = check_code_for_debugger_statements('from ipdb import set_trace as r\nr() # noqa')
+
+        expected_result = [
+            {'line': 1, 'message': 'T002 import for ipdb.set_trace found as r', 'col': 0},
+        ]
+
+        assert_equal(result, expected_result)
+
+    @skip_if_noqa_unsupported()
+    def test_skip_import_and_usage(self):
+        result = check_code_for_debugger_statements('from ipdb import set_trace as r # noqa\nr() # noqa')
+
+        expected_result = []
+
+        assert_equal(result, expected_result)
 
 
 class TestImportCases(Flake8DebuggerTestCases):
     def test_import_multiple(self):
         result = check_code_for_debugger_statements('import math, ipdb, collections')
-        assert_equal(result, [self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb')])
+        assert_equal(result, [{'col': 0, 'line': 1, 'message': 'T002 import for ipdb found'}])
 
     def test_import(self):
         result = check_code_for_debugger_statements('import pdb')
-        assert_equal(result, [self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb')])
+        assert_equal(result, [{'col': 0, 'line': 1, 'message': 'T002 import for pdb found'}])
 
     def test_import_interactive_shell_embed(self):
         result = check_code_for_debugger_statements('from IPython.terminal.embed import InteractiveShellEmbed')
-        assert_equal(result, [self.generate_error_statement(1, 0, 'import', 'IPython.terminal.embed', 'IPython.terminal.embed')])
+        assert_equal(result, [{'col': 0, 'line': 1, 'message': 'T002 import for IPython.terminal.embed.InteractiveShellEmbed found'}])
 
     def test_import_both_same_line(self):
         result = check_code_for_debugger_statements('import pdb, ipdb')
@@ -33,8 +198,8 @@ class TestImportCases(Flake8DebuggerTestCases):
         assert_equal(
             result,
             [
-                self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
+                {'col': 0, 'line': 1, 'message': 'T002 import for ipdb found'},
+                {'col': 0, 'line': 1, 'message': 'T002 import for pdb found'},
             ]
         )
 
@@ -54,16 +219,16 @@ class TestModuleSetTraceCases(Flake8DebuggerTestCases):
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'IPython.terminal.embed', 'IPython.terminal.embed'),
-                    self.generate_error_statement(1, 58, 'trace method', 'IPython.terminal.embed', 'InteractiveShellEmbed')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for IPython.terminal.embed.InteractiveShellEmbed found'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: IPython.terminal.embed.InteractiveShellEmbed used'}
                 ]
             )
         except AssertionError:
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'IPython.terminal.embed', 'IPython.terminal.embed'),
-                    self.generate_error_statement(1, 79, 'trace method', 'IPython.terminal.embed', 'InteractiveShellEmbed')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for IPython.terminal.embed.InteractiveShellEmbed found'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: IPython.terminal.embed.InteractiveShellEmbed used'}
                 ]
             )
 
@@ -73,16 +238,16 @@ class TestModuleSetTraceCases(Flake8DebuggerTestCases):
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                    self.generate_error_statement(1, 12, 'trace method', 'ipdb', 'set_trace')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for ipdb found'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: ipdb.set_trace used'}
                 ]
             )
         except AssertionError:
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                    self.generate_error_statement(1, 26, 'trace method', 'ipdb', 'set_trace')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for ipdb found'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: ipdb.set_trace used'}
                 ]
             )
 
@@ -92,16 +257,16 @@ class TestModuleSetTraceCases(Flake8DebuggerTestCases):
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
-                    self.generate_error_statement(1, 11, 'trace method', 'pdb', 'set_trace')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for pdb found'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: pdb.set_trace used'},
                 ]
             )
         except AssertionError:
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
-                    self.generate_error_statement(1, 24, 'trace method', 'pdb', 'set_trace')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for pdb found'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: pdb.set_trace used'},
                 ]
             )
 
@@ -111,18 +276,18 @@ class TestModuleSetTraceCases(Flake8DebuggerTestCases):
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
-                    self.generate_error_statement(1, 11, 'trace method', 'pdb', 'set_trace'),
-                    self.generate_error_statement(1, 31, 'trace method', 'pdb', 'set_trace')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for pdb found'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: pdb.set_trace used'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: pdb.set_trace used'},
                 ]
             )
         except AssertionError:
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
-                    self.generate_error_statement(1, 24, 'trace method', 'pdb', 'set_trace'),
-                    self.generate_error_statement(1, 44, 'trace method', 'pdb', 'set_trace')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for pdb found'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: pdb.set_trace used'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: pdb.set_trace used'},
                 ]
             )
 
@@ -137,7 +302,7 @@ class TestModuleSetTraceCases(Flake8DebuggerTestCases):
 class TestImportAsCases(Flake8DebuggerTestCases):
     def test_import_ipdb_as(self):
         result = check_code_for_debugger_statements('import math, ipdb as sif, collections')
-        assert_equal(result, [self.generate_error_statement(1, 0, 'import', 'ipdb', 'sif')])
+        assert_equal(result, [{'col': 0, 'line': 1, 'message': 'T002 import for ipdb found as sif'}])
 
 
 class TestModuleASSetTraceCases(Flake8DebuggerTestCases):
@@ -147,16 +312,16 @@ class TestModuleASSetTraceCases(Flake8DebuggerTestCases):
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'ipdb', 'sif'),
-                    self.generate_error_statement(1, 19, 'trace method', 'sif', 'set_trace')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for ipdb found as sif'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: ipdb.set_trace used'}
                 ]
             )
         except AssertionError:
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'ipdb', 'sif'),
-                    self.generate_error_statement(1, 32, 'trace method', 'sif', 'set_trace')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for ipdb found as sif'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: ipdb.set_trace used'}
                 ]
             )
 
@@ -168,16 +333,16 @@ class TestImportSetTraceCases(Flake8DebuggerTestCases):
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                    self.generate_error_statement(1, 32, 'trace method', 'ipdb', 'set_trace')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for ipdb.set_trace found'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: ipdb.set_trace used'}
                 ]
             )
         except AssertionError:
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                    self.generate_error_statement(1, 41, 'trace method', 'ipdb', 'set_trace')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for ipdb.set_trace found'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: ipdb.set_trace used'}
                 ]
             )
 
@@ -187,16 +352,16 @@ class TestImportSetTraceCases(Flake8DebuggerTestCases):
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
-                    self.generate_error_statement(1, 27, 'trace method', 'pdb', 'set_trace')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for pdb.set_trace found'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: pdb.set_trace used'}
                 ]
             )
         except AssertionError:
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'pdb', 'pdb'),
-                    self.generate_error_statement(1, 36, 'trace method', 'pdb', 'set_trace')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for pdb.set_trace found'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: pdb.set_trace used'}
                 ]
             )
 
@@ -206,16 +371,16 @@ class TestImportSetTraceCases(Flake8DebuggerTestCases):
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                    self.generate_error_statement(1, 40, 'trace method', 'ipdb', 'sif')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for ipdb.set_trace found as sif'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: ipdb.set_trace used as sif'}
                 ]
             )
         except AssertionError:
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                    self.generate_error_statement(1, 43, 'trace method', 'ipdb', 'sif')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for ipdb.set_trace found as sif'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: ipdb.set_trace used as sif'}
                 ]
             )
 
@@ -225,16 +390,16 @@ class TestImportSetTraceCases(Flake8DebuggerTestCases):
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                    self.generate_error_statement(1, 49, 'trace method', 'ipdb', 'sif')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for ipdb.set_trace found as sif'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: ipdb.set_trace used as sif'}
                 ]
             )
         except AssertionError:
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                    self.generate_error_statement(1, 52, 'trace method', 'ipdb', 'sif')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for ipdb.set_trace found as sif'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: ipdb.set_trace used as sif'}
                 ]
             )
 
@@ -244,16 +409,16 @@ class TestImportSetTraceCases(Flake8DebuggerTestCases):
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                    self.generate_error_statement(1, 48, 'trace method', 'ipdb', 'sif')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for ipdb.set_trace found as sif'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: ipdb.set_trace used as sif'}
                 ]
             )
         except AssertionError:
             assert_equal(
                 result,
                 [
-                    self.generate_error_statement(1, 0, 'import', 'ipdb', 'ipdb'),
-                    self.generate_error_statement(1, 51, 'trace method', 'ipdb', 'sif')
+                    {'col': 0, 'line': 1, 'message': 'T002 import for ipdb.set_trace found as sif'},
+                    {'col': 0, 'line': 1, 'message': 'T002 trace found: ipdb.set_trace used as sif'}
                 ]
             )
 
@@ -272,10 +437,10 @@ class TestImportSetTraceCases(Flake8DebuggerTestCases):
         try:
             assert_equal(
                 result,
-                [self.generate_error_statement(2, 8, 'trace method', 'ipdb', 'sif')]
+                [{'col': 0, 'line': 2, 'message': 'T002 trace found: ipdb.set_trace used as sif'}]
             )
         except AssertionError:
             assert_equal(
                 result,
-                [self.generate_error_statement(2, 11, 'trace method', 'ipdb', 'sif')]
+                [{'col': 0, 'line': 2, 'message': 'T002 trace found: ipdb.set_trace used as sif'}]
             )

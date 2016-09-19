@@ -1,141 +1,99 @@
+"""Extension for flake8 that finds usage of the debugger."""
 import ast
-import tokenize
 
-from sys import stdin
 
-__version__ = '1.4.0'
+__version__ = '2.1.0'
 
 DEBUGGER_ERROR_CODE = 'T002'
 
 
-class DebugStatementChecker(object):
-    name = 'flake8-debugger'
-    version = __version__
+def flake8ext(f):
+    """Decorate flake8 extension function."""
+    f.name = 'flake8-debugger'
+    f.version = __version__
+    return f
 
-    def __init__(self, tree, filename='(none)', builtins=None):
-        self.tree = tree
-        self.filename = (filename == 'stdin' and stdin) or filename
 
-    def run(self):
-        if self.filename == stdin:
-            noqa = get_noqa_lines(self.filename)
+def format_debugger_message(import_type, item_imported, item_alias, trace_method, trace_alias):
+    if import_type == 'import':
+        if item_imported == item_alias:
+            return '{0} import for {1} found'.format(DEBUGGER_ERROR_CODE, item_alias)
         else:
-            with open(self.filename, 'r') as file_to_check:
-                noqa = get_noqa_lines(file_to_check.readlines())
-
-        errors = check_tree_for_debugger_statements(self.tree, noqa)
-
-        for error in errors:
-            yield (error.get("line"), error.get("col"), error.get("message"), type(self))
-
-
-def get_noqa_lines(code):
-    tokens = tokenize.generate_tokens(lambda L=iter(code): next(L))
-    noqa = [token[2][0] for token in tokens if token[0] == tokenize.COMMENT and (token[1].endswith('noqa') or (isinstance(token[0], str) and token[0].endswith('noqa')))]
-    return noqa
+            return '{0} import for {1} found as {2}'.format(DEBUGGER_ERROR_CODE, item_imported, item_alias)
+    elif import_type == 'import_trace':
+        if trace_method == trace_alias:
+            return '{0} import for {1}.{2} found'.format(DEBUGGER_ERROR_CODE, item_imported, trace_method)
+        else:
+            return '{0} import for {1}.{2} found as {3}'.format(DEBUGGER_ERROR_CODE, item_imported, trace_method, trace_alias)
+    elif import_type == 'trace_used':
+        if trace_method == trace_alias:
+            return '{0} trace found: {1}.{2} used'.format(DEBUGGER_ERROR_CODE, item_imported, trace_method)
+        else:
+            return '{0} trace found: {1}.{2} used as {3}'.format(DEBUGGER_ERROR_CODE, item_imported, trace_method, trace_alias)
 
 
-def check_code_for_debugger_statements(code):
-    tree = ast.parse(code)
-    noqa = get_noqa_lines(code.split("\n"))
-    return check_tree_for_debugger_statements(tree, noqa)
+debuggers = {
+    'pdb': 'set_trace',
+    'ipdb': 'set_trace',
+    'IPython.terminal.embed': 'InteractiveShellEmbed',
+    'IPython.frontend.terminal.embed': 'InteractiveShellEmbed',
+}
 
 
-def format_debugger_message(item_type, item_found, name_used):
-    return '{0} {1} for {2} found as {3}'.format(DEBUGGER_ERROR_CODE, item_type, item_found, name_used)
-
-
-def check_tree_for_debugger_statements(tree, noqa):
-    errors = []
-    debugger_states = {
-        'pdb': {
-            'found': False,
-            'name': None,
-            'trace_method': 'set_trace'
-        },
-        'ipdb': {
-            'found': False,
-            'name': None,
-            'trace_method': 'set_trace'
-        },
-        'IPython.terminal.embed': {
-            'found': False,
-            'name': None,
-            'trace_method': 'InteractiveShellEmbed'
-        },
-        'IPython.frontend.terminal.embed': {
-            'found': False,
-            'name': None,
-            'trace_method': 'InteractiveShellEmbed'
-        }
-    }
-    for node in ast.walk(tree):
+def check_for_debugger_import(logical_line, checker_state):
+    for node in ast.walk(ast.parse(logical_line)):
         if isinstance(node, ast.Import) or isinstance(node, ast.ImportFrom):
-            debuggers_found_here = {}
-            for debugger in debugger_states.keys():
-                debuggers_found_here[debugger] = False
 
-            if hasattr(node, 'module') and node.module not in debugger_states.keys():
+            if hasattr(node, 'module') and node.module not in debuggers.keys():
                 continue
-            elif hasattr(node, 'module'):
-                debuggers_found_here[node.module] = True
-                debugger_states[node.module]['name'] = node.module
-                debugger_states[node.module]['found'] = True
 
             module_names = (hasattr(node, 'names') and [module_name.name for module_name in node.names]) or []
             if isinstance(node, ast.Import):
-                for debugger in debugger_states.keys():
+                for debugger in debuggers.keys():
                     if debugger in module_names:
                         index = module_names.index(debugger)
-                        if hasattr(node.names[index], 'asname'):
-                            debugger_states[debugger]['name'] = node.names[index].asname or debugger
-                            debugger_states[debugger]['found'] = True
-                            debuggers_found_here[debugger] = True
+                        yield 'import', debugger, getattr(node.names[index], 'asname', None) or debugger, debuggers[debugger], debuggers[debugger]
 
             elif isinstance(node, ast.ImportFrom):
-                trace_methods = [debugger_states[debugger]['trace_method'] for debugger in debugger_states if debugger_states[debugger]['found']]
-                traces_found = filter(lambda trace: trace in module_names, trace_methods)
+                trace_methods = debuggers.values()
+                traces_found = set([trace for trace in trace_methods if trace in module_names])
                 if not traces_found:
                     continue
                 for trace in traces_found:
                     trace_index = trace in module_names and module_names.index(trace)
-                    if hasattr(node.names[trace_index], 'asname'):
-                        for debugger in debugger_states:
-                            if debuggers_found_here[debugger]:
-                                debugger_states[debugger]['trace_method'] = node.names[trace_index].asname or debugger_states[debugger]['trace_method']
+                    yield 'import_trace', node.module, node.module, debuggers[node.module], getattr(node.names[trace_index], 'asname', None) or debuggers[node.module]
 
-            if node.lineno not in noqa:
-                for debugger in debugger_states.keys():
-                    if debuggers_found_here[debugger]:
-                        errors.append({
-                            'message': format_debugger_message('import', debugger, debugger_states[debugger]['name']),
-                            'line': node.lineno,
-                            'col': node.col_offset,
-                        })
 
-        elif isinstance(node, ast.Call) and node.lineno not in noqa:
-            trace_methods = [debugger_states[debugger]['trace_method'] for debugger in debugger_states if debugger_states[debugger]['found']]
+def check_for_set_trace_usage(logical_line, checker_state):
+    for node in ast.walk(ast.parse(logical_line)):
+        if isinstance(node, ast.Call):
+            trace_methods = [checker_state['debuggers_found'][debugger]['trace_alias'] for debugger in checker_state['debuggers_found'].keys()]
             if (getattr(node.func, 'attr', None) in trace_methods or getattr(node.func, 'id', None) in trace_methods):
-                debugger_name = None
-                for debugger in debugger_states.keys():
+                for debugger, debugger_info in checker_state['debuggers_found'].items():
+                    trace_method_name = checker_state['debuggers_found'][debugger]['trace_alias']
                     if (
-                        (
-                            (hasattr(node.func, 'value') and node.func.value.id == debugger_states[debugger]['name']) or
-                            (hasattr(node.func, 'id') and node.func.id == debugger_states[debugger]['trace_method'])
-                        ) and debugger_states[debugger]['found']
+                        (hasattr(node.func, 'value') and node.func.value.id == debugger_info['alias']) or
+                        (hasattr(node.func, 'id') and trace_method_name and node.func.id == trace_method_name)
                     ):
-                        debugger_name = debugger_states[debugger]['name']
+                        yield 'trace_used', debugger, debugger_info['alias'], debugger_info['trace_method'], debugger_info['trace_alias']
                         break
-                if not debugger_name:
-                    debuggers_found = [debugger_states[debugger]['name'] for debugger in debugger_states if debugger_states[debugger]['found']]
-                    if len(debuggers_found) == 1:
-                        debugger_name = debuggers_found[0]
-                    else:
-                        debugger_name = 'debugger'
-                set_trace_name = hasattr(node.func, 'attr') and node.func.attr or hasattr(node.func, 'id') and node.func.id
-                errors.append({
-                    "message": format_debugger_message('trace method', debugger_name, set_trace_name),
-                    "line": node.lineno,
-                    "col": node.col_offset
-                })
-    return errors
+
+
+@flake8ext
+def debugger_usage(logical_line, checker_state=None, noqa=None):
+    if 'debuggers_found' not in checker_state:
+        checker_state['debuggers_found'] = {}
+    generator = check_for_debugger_import(logical_line, checker_state.copy())
+
+    for import_type, item_imported, item_alias, trace_method, trace_alias in generator:
+        if item_imported is not None:
+            checker_state['debuggers_found'][item_imported] = {
+                'alias': item_alias, 'trace_method': trace_method, 'trace_alias': trace_alias
+            }
+            if not noqa:
+                yield 0, format_debugger_message(import_type, item_imported, item_alias, trace_method, trace_alias)
+
+    if not noqa:
+        generator = check_for_set_trace_usage(logical_line, checker_state.copy())
+        for usage in generator:
+            yield 0, format_debugger_message(*usage)
