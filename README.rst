@@ -28,6 +28,12 @@ available in ``flake8``::
 Changes
 -------
 
+3.0.0 - 2017-05-11
+````````````````
+* fix the refactor of the detector in 2.0.0 that was removed from pypi.
+* fix a flake8 issue that had it turned off by default.
+
+
 2.0.0 - 2016-09-19
 ````````````````
 * refactor detector
