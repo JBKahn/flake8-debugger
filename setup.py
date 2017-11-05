@@ -18,9 +18,10 @@ def get_long_description():
             descr.append(f.read())
     return '\n\n'.join(descr)
 
-install_requires = ['flake8']
 
-test_requires = ['nose', 'flake8>=1.5', 'unittest2==1.1.0', 'pep8']
+install_requires = ['flake8>=1.5', 'pycodestyle']
+
+test_requires = ['pytest', 'flake8>=1.5', 'pycodestyle']
 
 setup(
     name='flake8-debugger',
@@ -41,6 +42,7 @@ setup(
     },
     install_requires=install_requires,
     tests_require=test_requires,
+    setup_requires=['pytest-runner'],
     test_suite="nose.collector",
     classifiers=[
         'Development Status :: 4 - Beta',
