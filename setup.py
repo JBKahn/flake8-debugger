@@ -37,7 +37,7 @@ setup(
     zip_safe=False,
     entry_points={
         'flake8.extension': [
-            'T = flake8_debugger:debugger_usage',
+            'T = flake8_debugger:DebuggerChecker',
         ],
     },
     install_requires=install_requires,
