@@ -78,6 +78,15 @@ class TestQA(object):
 
         assert result == expected_result
 
+    def test_catches_simple_debugger_when_called_off_global(self):
+        result = check_code_for_debugger_statements("__import__('ipdb').set_trace()")
+
+        expected_result = [
+            {'line': 1, 'message': 'T002 trace found: set_trace used', 'col': 0},
+        ]
+
+        assert result == expected_result
+
     @pytest.mark.skipif(True, reason="Not supported just yet")
     def test_catches_simple_debugger_when_called_off_var(self):
         result = check_code_for_debugger_statements('import ipdb\ntest = ipdb.set_trace\ntest()')

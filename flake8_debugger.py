@@ -55,7 +55,7 @@ class DebuggerFinder(ast.NodeVisitor):
         debugger_method_names = chain(debuggers.values(), self.debuggers_traces_names.values())
         is_debugger_attribute = getattr(node.func, "attr", None) in list(debugger_method_names)
         if is_debugger_attribute:
-            caller = node.func.value.id
+            caller = getattr(node.func.value, "id", None)
             entry = self.debuggers_used.setdefault((node.lineno, node.col_offset), [])
             if caller in self.debuggers_names.values():
                 entry.append('{0} trace found: {1}.{2} used'.format(DEBUGGER_ERROR_CODE, caller, node.func.attr))
