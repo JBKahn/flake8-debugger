@@ -82,7 +82,7 @@ class TestQA(object):
         result = check_code_for_debugger_statements("__import__('ipdb').set_trace()")
 
         expected_result = [
-            {'line': 1, 'message': 'T002 trace found: set_trace used', 'col': 0},
+            {'line': 1, 'message': 'T100 trace found: set_trace used', 'col': 0},
         ]
 
         assert result == expected_result
