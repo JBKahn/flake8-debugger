@@ -5,28 +5,16 @@ from itertools import chain
 import pycodestyle
 
 
-__version__ = '3.0.0'
+__version__ = '3.1.0'
 
-DEBUGGER_ERROR_CODE = 'T002'
+DEBUGGER_ERROR_CODE = 'T100'
 
 debuggers = {
-    'pdb': 'set_trace',
-    'pudb': 'set_trace',
-    'ipdb': 'set_trace',
-    'IPython.terminal.embed': 'InteractiveShellEmbed',
-    'IPython.frontend.terminal.embed': 'InteractiveShellEmbed',
-}
-
-
-VIOLATIONS = {
-    'found': {
-        'set_trace': 'T001 set_trace found.',
-        'InteractiveShellEmbed': 'T003 InteractiveShellEmbed found.',
-    },
-    'declared': {
-        'print': 'T101 Python 2.x reserved word print used.',
-        'pprint': 'T103 pprint declared',
-    },
+    'pdb': ['set_trace'],
+    'pudb': ['set_trace'],
+    'ipdb': ['set_trace', 'sset_trace'],
+    'IPython.terminal.embed': ['InteractiveShellEmbed'],
+    'IPython.frontend.terminal.embed': ['InteractiveShellEmbed'],
 }
 
 
@@ -42,7 +30,7 @@ class DebuggerFinder(ast.NodeVisitor):
         self.debuggers_imported = {}
 
     def visit_Call(self, node):
-        debugger_method_names = chain(debuggers.values(), self.debuggers_traces_names.values())
+        debugger_method_names = chain(*debuggers.values(), self.debuggers_traces_names.values())
         is_debugger_function = getattr(node.func, "id", None) in list(debugger_method_names)
         if is_debugger_function:
             if node.func.id in self.debuggers_traces_names.values():
@@ -53,7 +41,7 @@ class DebuggerFinder(ast.NodeVisitor):
                 else:
                     entry.append('{0} trace found: {1} used as {2}'.format(DEBUGGER_ERROR_CODE, debugger_method, node.func.id))
 
-        debugger_method_names = chain(debuggers.values(), self.debuggers_traces_names.values())
+        debugger_method_names = chain(*debuggers.values(), self.debuggers_traces_names.values())
         is_debugger_attribute = getattr(node.func, "attr", None) in list(debugger_method_names)
         if is_debugger_attribute:
             caller = getattr(node.func.value, "id", None)
@@ -79,7 +67,7 @@ class DebuggerFinder(ast.NodeVisitor):
     def visit_ImportFrom(self, node):
         if node.module in list(debuggers.keys()):
             for name_node in node.names:
-                if name_node.name == debuggers[node.module]:
+                if name_node.name in debuggers[node.module]:
                     if name_node.asname is not None:
                         self.debuggers_traces_names[name_node.name] = name_node.asname
                         entry = self.debuggers_traces_redefined.setdefault((node.lineno, node.col_offset), [])
@@ -116,6 +104,7 @@ class DebuggerChecker(object):
 
         parser = DebuggerFinder()
         parser.visit(self.tree)
+
         for error, messages in parser.debuggers_used.items():
             if not pycodestyle.noqa(self.lines[error[0] - 1]):
                 for message in messages:
