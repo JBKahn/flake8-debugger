@@ -30,8 +30,8 @@ class DebuggerFinder(ast.NodeVisitor):
         self.debuggers_imported = {}
 
     def visit_Call(self, node):
-        debugger_method_names = chain(*debuggers.values(), self.debuggers_traces_names.values())
-        is_debugger_function = getattr(node.func, "id", None) in list(debugger_method_names)
+        debugger_method_names = list(chain(self.debuggers_traces_names.values(), *debuggers.values()))
+        is_debugger_function = getattr(node.func, "id", None) in debugger_method_names
         if is_debugger_function:
             if node.func.id in self.debuggers_traces_names.values():
                 debugger_method = next(item[0] for item in self.debuggers_traces_names.items() if item[1] == node.func.id)
@@ -41,8 +41,7 @@ class DebuggerFinder(ast.NodeVisitor):
                 else:
                     entry.append('{0} trace found: {1} used as {2}'.format(DEBUGGER_ERROR_CODE, debugger_method, node.func.id))
 
-        debugger_method_names = chain(*debuggers.values(), self.debuggers_traces_names.values())
-        is_debugger_attribute = getattr(node.func, "attr", None) in list(debugger_method_names)
+        is_debugger_attribute = getattr(node.func, "attr", None) in debugger_method_names
         if is_debugger_attribute:
             caller = getattr(node.func.value, "id", None)
             entry = self.debuggers_used.setdefault((node.lineno, node.col_offset), [])
