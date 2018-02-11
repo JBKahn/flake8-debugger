@@ -11,6 +11,7 @@ DEBUGGER_ERROR_CODE = 'T002'
 
 debuggers = {
     'pdb': 'set_trace',
+    'pudb': 'set_trace',
     'ipdb': 'set_trace',
     'IPython.terminal.embed': 'InteractiveShellEmbed',
     'IPython.frontend.terminal.embed': 'InteractiveShellEmbed',
