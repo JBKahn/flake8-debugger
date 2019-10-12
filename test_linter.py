@@ -28,6 +28,7 @@ class DebuggerTestStyleGuide(pycodestyle.StyleGuide):
     physical_checks = []
     ast_checks = [("debugger_usage", DebuggerChecker, ["tree", "filename", "lines"])]
     max_line_length = None
+    max_doc_length = None
     hang_closing = False
     verbose = False
     benchmark_keys = {"files": 0, "physical lines": 0, "logical lines": 0}
