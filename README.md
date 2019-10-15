@@ -28,6 +28,11 @@ available in ``flake8``::
 Changes
 -------
 
+##### 3.2.0 - 2019-10-15
+
+* Forgot to add `breakpoint` support to the last changelog entry as well as fixing a bug introduced into that version that flagged `import builtins` as noteworthy.
+
+
 ##### 3.1.1 - 2019-10-12
 
 * Fix reading from stdin when it is closed (requires flake8 > 2.1).
