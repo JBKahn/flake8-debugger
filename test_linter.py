@@ -92,41 +92,52 @@ class TestQA(object):
 
 
 class TestBreakpoint(object):
-
-    @pytest.mark.skipif(sys.version_info < (3, 7), reason='breakpoint builtin introduced in 3.7')
+    @pytest.mark.skipif(sys.version_info < (3, 7), reason="breakpoint builtin introduced in 3.7")
     def test_catches_breakpoint_call_for_python_3_7_and_above(self):
-        result = check_code_for_debugger_statements('breakpoint()')
+        result = check_code_for_debugger_statements("breakpoint()")
 
-        expected_result = [
-            {'line': 1, 'message': 'T100 trace found: breakpoint used', 'col': 0}
-        ]
+        expected_result = [{"line": 1, "message": "T100 trace found: breakpoint used", "col": 0}]
 
         assert result == expected_result
 
-    @pytest.mark.skipif(sys.version_info < (3, 7), reason='breakpoint builtin introduced in 3.7')
+    @pytest.mark.skipif(sys.version_info < (3, 7), reason="breakpoint builtin introduced in 3.7")
     def test_catches_breakpoint_import(self):
-        result = check_code_for_debugger_statements('from builtins import breakpoint')
+        result = check_code_for_debugger_statements("from builtins import breakpoint")
 
-        expected_result = [
-            {'line': 1, 'message': 'T100 import for breakpoint found', 'col': 0},
-        ]
+        expected_result = [{"line": 1, "message": "T100 import for breakpoint found", "col": 0}]
 
         assert result == expected_result
 
-    @pytest.mark.skipif(sys.version_info < (3, 7), reason='breakpoint builtin introduced in 3.7')
+    @pytest.mark.skipif(sys.version_info < (3, 7), reason="breakpoint builtin introduced in 3.7")
+    def test_allows_builtins_import(self):
+        result = check_code_for_debugger_statements("import builtins")
+
+        expected_result = []
+
+        assert result == expected_result
+
+    @pytest.mark.skipif(sys.version_info < (3, 7), reason="breakpoint builtin introduced in 3.7")
+    def test_catches_breakpoint_usage_from_builtins(self):
+        result = check_code_for_debugger_statements("import builtins\nbuiltins.breakpoint()")
+
+        expected_result = [{"col": 0, "line": 2, "message": "T100 trace found: breakpoint used"}]
+
+        assert result == expected_result
+
+    @pytest.mark.skipif(sys.version_info < (3, 7), reason="breakpoint builtin introduced in 3.7")
     def test_catches_breakpoint_imported_as_other_name(self):
-        result = check_code_for_debugger_statements('from builtins import breakpoint as b\nb()')
+        result = check_code_for_debugger_statements("from builtins import breakpoint as b\nb()")
 
         expected_result = [
-            {'line': 2, 'message': 'T100 trace found: breakpoint used as b', 'col': 0},
-            {'line': 1, 'message': 'T100 import for breakpoint found as b', 'col': 0},
+            {"line": 2, "message": "T100 trace found: breakpoint used as b", "col": 0},
+            {"line": 1, "message": "T100 import for breakpoint found as b", "col": 0},
         ]
 
         assert result == expected_result
 
-    @pytest.mark.skipif(sys.version_info >= (3, 7), reason='breakpoint builtin introduced in 3.7')
+    @pytest.mark.skipif(sys.version_info >= (3, 7), reason="breakpoint builtin introduced in 3.7")
     def test_allows_breakpoint_call_for_python_below_3_7(self):
-        result = check_code_for_debugger_statements('breakpoint()')
+        result = check_code_for_debugger_statements("breakpoint()")
 
         expected_result = []
 

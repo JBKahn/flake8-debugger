@@ -23,7 +23,7 @@ debuggers = {
 }
 
 if sys.version_info >= (3, 7):
-    debuggers['builtins'] = ['breakpoint']
+    debuggers["builtins"] = ["breakpoint"]
 
 
 class DebuggerFinder(ast.NodeVisitor):
@@ -38,9 +38,9 @@ class DebuggerFinder(ast.NodeVisitor):
         self.debuggers_imported = {}
 
     def visit_Call(self, node):
-        if sys.version_info >= (3, 7) and getattr(node.func, 'id', None) == 'breakpoint':
+        if sys.version_info >= (3, 7) and getattr(node.func, "id", None) == "breakpoint":
             entry = self.debuggers_used.setdefault((node.lineno, node.col_offset), [])
-            entry.append('{0} trace found: breakpoint used'.format(DEBUGGER_ERROR_CODE))
+            entry.append("{0} trace found: breakpoint used".format(DEBUGGER_ERROR_CODE))
 
         debugger_method_names = list(chain(self.debuggers_traces_names.values(), *debuggers.values()))
         is_debugger_function = getattr(node.func, "id", None) in debugger_method_names
@@ -76,7 +76,8 @@ class DebuggerFinder(ast.NodeVisitor):
                     entry.append(
                         "{0} import for {1} found as {2}".format(DEBUGGER_ERROR_CODE, name_node.name, name_node.asname)
                     )
-                else:
+                # Unlike the other imports, we don't want to consider all builtin imports as worthy of flagging.
+                elif name_node.name != "builtins":
                     self.debuggers_names[name_node.name] = name_node.name
                     entry = self.debuggers_imported.setdefault((node.lineno, node.col_offset), [])
                     entry.append("{0} import for {1} found".format(DEBUGGER_ERROR_CODE, name_node.name))
