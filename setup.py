@@ -28,6 +28,7 @@ setup(
     version=get_version(),	
     description="ipdb/pdb statement checker plugin for flake8",	
     long_description=get_long_description(),	
+    long_description_content_type='text/markdown',
     keywords='flake8 debugger ipdb pdb',	
     author='Joseph Kahn',	
     author_email='josephbkahn@gmail.com',	
