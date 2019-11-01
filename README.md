@@ -1,5 +1,5 @@
 Flake8 debugger plugin
-==================
+======================
 
 Check for pdb;idbp imports and set traces, as well as `from IPython.terminal.embed import InteractiveShellEmbed` and `InteractiveShellEmbed()()`.
 
