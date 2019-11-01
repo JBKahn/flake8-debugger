@@ -28,6 +28,10 @@ available in ``flake8``::
 Changes
 -------
 
+##### 3.2.1 - 2019-10-31
+
+* Swapped back from poetry to setup.py :(....python ecosystem issues....
+
 ##### 3.2.0 - 2019-10-15
 
 * Forgot to add `breakpoint` support to the last changelog entry as well as fixing a bug introduced into that version that flagged `import builtins` as noteworthy.
