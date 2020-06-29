@@ -42,8 +42,7 @@ setup(
         ],	
     },	
     install_requires=install_requires,	
-    tests_require=test_requires,	
-    setup_requires=['pytest-runner'],	
+    tests_require=test_requires,
     test_suite="nose.collector",	
     classifiers=[	
         'Development Status :: 4 - Beta',	
