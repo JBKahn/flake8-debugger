@@ -28,6 +28,11 @@ available in ``flake8``::
 Changes
 -------
 
+##### 4.0.0 - 2020-11-29
+
+* Opted back into using Poetry now that the existing issues have been fixed.
+* Python 2.7 support was no officially dropped.
+
 ##### 3.2.1 - 2019-10-31
 
 * Swapped back from poetry to setup.py :(....python ecosystem issues....
