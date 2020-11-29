@@ -11,8 +11,8 @@ Installation
 
 You can install or upgrade ``flake8-debugger`` with these commands::
 
-  $ pip install flake8-debugger
-  $ pip install --upgrade flake8-debugger
+    $ pip install flake8-debugger
+    $ pip install --upgrade flake8-debugger
 
 
 Plugin for Flake8
