@@ -273,6 +273,37 @@ class TestModuleSetTraceCases(object):
         result = check_code_for_debugger_statements("from math import Max as set_trace\nset_trace()")
         assert result == []
 
+    def test_import_rdb_use_set_trace(self):
+        result = check_code_for_debugger_statements("from celery.contrib import rdb;rdb.set_trace();")
+
+        expected_result = [
+            {"col": 31, "line": 1, "message": "T100 trace found: set_trace used"},
+        ]
+
+        try:
+            assert result == expected_result
+        except AssertionError:
+            for item in expected_result:
+                item["col"] = 0
+
+            assert result == expected_result
+
+    def test_from_celery_import_rdb_use_set_trace(self):
+        result = check_code_for_debugger_statements("import celery.contrib.rdb;celery.contrib.rdb.set_trace();")
+
+        expected_result = [
+            {"col": 26, "line": 1, "message": "T100 trace found: set_trace used"},
+            {"col": 0, "line": 1, "message": "T100 import for celery.contrib.rdb found"},
+        ]
+
+        try:
+            assert result == expected_result
+        except AssertionError:
+            for item in expected_result:
+                item["col"] = 0
+
+            assert result == expected_result
+
 
 class TestImportAsCases(object):
     def test_import_ipdb_as(self):

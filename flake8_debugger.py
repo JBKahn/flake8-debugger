@@ -20,6 +20,7 @@ debuggers = {
     "ipdb": ["set_trace", "sset_trace"],
     "IPython.terminal.embed": ["InteractiveShellEmbed"],
     "IPython.frontend.terminal.embed": ["InteractiveShellEmbed"],
+    "celery.contrib.rdb": ["set_trace"],
 }
 
 if sys.version_info >= (3, 7):
