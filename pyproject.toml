@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "flake8-debugger"
-version = "4.1.1"
+version = "2"
 description = "ipdb/pdb statement checker plugin for flake8"
 readme = "README.md"
 

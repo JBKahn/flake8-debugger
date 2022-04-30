@@ -28,6 +28,10 @@ available in ``flake8``::
 Changes
 -------
 
+##### 4.1.2 - 2022-04-30
+
+* Add tests to bundle.
+
 ##### 4.1.1 - 2022-04-30
 
 * Add tests to bundle.
