@@ -40,7 +40,7 @@ classifiers = [
 ]
 
 
-include = ["pyproject.toml", "flake8_debugger.py", "LICENCE"]
+include = ["pyproject.toml", "flake8_debugger.py", "LICENCE", "test_linter.py"]
 
 [tool.poetry.plugins."flake8.extension"]
 T100 = "flake8_debugger:DebuggerChecker"
