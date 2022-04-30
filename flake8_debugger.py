@@ -9,7 +9,7 @@ try:
 except ImportError:
     from flake8 import utils as stdin_utils
 
-__version__ = "4.1.0"
+__version__ = "4.1.1"
 
 DEBUGGER_ERROR_CODE = "T100"
 
