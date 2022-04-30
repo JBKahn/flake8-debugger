@@ -28,6 +28,11 @@ available in ``flake8``::
 Changes
 -------
 
+##### 4.1.0 - 2022-04-30
+
+* Drop support for python 3.6 and remove special handling code.
+* bundle licence file.
+
 ##### 4.0.0 - 2020-11-29
 
 * Opted back into using Poetry now that the existing issues have been fixed.

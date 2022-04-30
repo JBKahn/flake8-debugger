@@ -3,7 +3,6 @@ import pycodestyle
 from flake8_debugger import DebuggerChecker
 
 import pytest
-import sys
 
 
 class CaptureReport(pycodestyle.BaseReport):
@@ -32,6 +31,7 @@ class DebuggerTestStyleGuide(pycodestyle.StyleGuide):
     hang_closing = False
     verbose = False
     benchmark_keys = {"files": 0, "physical lines": 0, "logical lines": 0}
+    indent_size = 4
 
 
 _debugger_test_style = DebuggerTestStyleGuide()
@@ -92,7 +92,6 @@ class TestQA(object):
 
 
 class TestBreakpoint(object):
-    @pytest.mark.skipif(sys.version_info < (3, 7), reason="breakpoint builtin introduced in 3.7")
     def test_catches_breakpoint_call_for_python_3_7_and_above(self):
         result = check_code_for_debugger_statements("breakpoint()")
 
@@ -100,7 +99,6 @@ class TestBreakpoint(object):
 
         assert result == expected_result
 
-    @pytest.mark.skipif(sys.version_info < (3, 7), reason="breakpoint builtin introduced in 3.7")
     def test_catches_breakpoint_import(self):
         result = check_code_for_debugger_statements("from builtins import breakpoint")
 
@@ -108,7 +106,6 @@ class TestBreakpoint(object):
 
         assert result == expected_result
 
-    @pytest.mark.skipif(sys.version_info < (3, 7), reason="breakpoint builtin introduced in 3.7")
     def test_allows_builtins_import(self):
         result = check_code_for_debugger_statements("import builtins")
 
@@ -116,7 +113,6 @@ class TestBreakpoint(object):
 
         assert result == expected_result
 
-    @pytest.mark.skipif(sys.version_info < (3, 7), reason="breakpoint builtin introduced in 3.7")
     def test_catches_breakpoint_usage_from_builtins(self):
         result = check_code_for_debugger_statements("import builtins\nbuiltins.breakpoint()")
 
@@ -124,7 +120,6 @@ class TestBreakpoint(object):
 
         assert result == expected_result
 
-    @pytest.mark.skipif(sys.version_info < (3, 7), reason="breakpoint builtin introduced in 3.7")
     def test_catches_breakpoint_imported_as_other_name(self):
         result = check_code_for_debugger_statements("from builtins import breakpoint as b\nb()")
 
@@ -135,17 +130,8 @@ class TestBreakpoint(object):
 
         assert result == expected_result
 
-    @pytest.mark.skipif(sys.version_info >= (3, 7), reason="breakpoint builtin introduced in 3.7")
-    def test_allows_breakpoint_call_for_python_below_3_7(self):
-        result = check_code_for_debugger_statements("breakpoint()")
-
-        expected_result = []
-
-        assert result == expected_result
-
 
 class TestNoQA(object):
-    @pytest.mark.skipif(sys.version_info < (2, 7), reason="Python 2.6 does not support noqa")
     def test_skip_import(self):
         result = check_code_for_debugger_statements("from ipdb import set_trace as r # noqa\nr()")
 
@@ -153,7 +139,6 @@ class TestNoQA(object):
 
         assert result == expected_result
 
-    @pytest.mark.skipif(sys.version_info < (2, 7), reason="Python 2.6 does not support noqa")
     def test_skip_usage(self):
         result = check_code_for_debugger_statements("from ipdb import set_trace as r\nr() # noqa")
 
@@ -161,7 +146,6 @@ class TestNoQA(object):
 
         assert result == expected_result
 
-    @pytest.mark.skipif(sys.version_info < (2, 7), reason="Python 2.6 does not support noqa")
     def test_skip_import_and_usage(self):
         result = check_code_for_debugger_statements("from ipdb import set_trace as r # noqa\nr() # noqa")
 

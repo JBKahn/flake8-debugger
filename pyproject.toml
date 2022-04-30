@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "flake8-debugger"
-version = "4.0.0"
+version = "4.1.0"
 description = "ipdb/pdb statement checker plugin for flake8"
 readme = "README.md"
 
@@ -40,24 +40,23 @@ classifiers = [
 ]
 
 
-include = ["pyproject.toml", "flake8_debugger.py"]
+include = ["pyproject.toml", "flake8_debugger.py", "LICENCE"]
 
 [tool.poetry.plugins."flake8.extension"]
 T100 = "flake8_debugger:DebuggerChecker"
 
 [tool.poetry.dependencies]
-python = ">=3.6"
+python = ">=3.7"
 "flake8" = ">=3.0"
-six = "*"
 pycodestyle = "*"
 
 [tool.poetry.dev-dependencies]
-black = { version = "^20.8b1" }
+black = { version = "^22.3.0" }
 pytest = "*"
 
 [tool.black]
 line-length = 120
-target-version = ['py36', 'py37', 'py38', 'py39']
+target-version = ['py37', 'py38', 'py39', 'py310']
 include = '\.pyi?$'
 exclude = '''
 /(

@@ -1,6 +1,5 @@
 """Extension for flake8 that finds usage of the debugger."""
 import ast
-import sys
 from itertools import chain
 
 import pycodestyle
@@ -10,7 +9,7 @@ try:
 except ImportError:
     from flake8 import utils as stdin_utils
 
-__version__ = "4.0.0"
+__version__ = "4.1.0"
 
 DEBUGGER_ERROR_CODE = "T100"
 
@@ -21,10 +20,8 @@ debuggers = {
     "IPython.terminal.embed": ["InteractiveShellEmbed"],
     "IPython.frontend.terminal.embed": ["InteractiveShellEmbed"],
     "celery.contrib.rdb": ["set_trace"],
+    "builtins": ["breakpoint"]
 }
-
-if sys.version_info >= (3, 7):
-    debuggers["builtins"] = ["breakpoint"]
 
 
 class DebuggerFinder(ast.NodeVisitor):
@@ -39,7 +36,7 @@ class DebuggerFinder(ast.NodeVisitor):
         self.debuggers_imported = {}
 
     def visit_Call(self, node):
-        if sys.version_info >= (3, 7) and getattr(node.func, "id", None) == "breakpoint":
+        if getattr(node.func, "id", None) == "breakpoint":
             entry = self.debuggers_used.setdefault((node.lineno, node.col_offset), [])
             entry.append("{0} trace found: breakpoint used".format(DEBUGGER_ERROR_CODE))
 
